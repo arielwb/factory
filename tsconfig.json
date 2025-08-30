@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@factory/*": ["packages/*"]
+    },
+    "outDir": "dist"
+  },
+  "include": ["packages", "apps", "prisma"],
+  "exclude": ["node_modules", "dist"]
+}
+

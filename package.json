@@ -1,0 +1,34 @@
+{
+  "name": "factory",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Content factory monorepo (apps/*, packages/*)",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @factory/site dev",
+    "worker:once": "node -r ts-node/register -r tsconfig-paths/register apps/worker/index.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.15.0",
+    "@types/node": "^24.3.0",
+    "date-fns": "^4.1.0",
+    "eslint": "^9.34.0",
+    "fluent-ffmpeg": "^2.1.3",
+    "nanoid": "^5.1.5",
+    "next": "^15.5.2",
+    "prettier": "^3.6.2",
+    "prisma": "^6.15.0",
+    "puppeteer": "^24.17.1",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "sharp": "^0.34.3",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "twitter-api-v2": "^1.25.0",
+    "typescript": "^5.9.2",
+    "zod": "^4.1.5"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "@factory/infra",
+  "version": "0.0.0",
+  "private": true,
+  "main": "container.ts",
+  "types": "container.ts"
+}
+

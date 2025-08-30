@@ -1,0 +1,11 @@
+node_modules
+.next
+dist
+.turbo
+pnpm-lock.yaml
+data/media
+data/outbox
+data/dev.db
+data/*.db*
+*.log
+
