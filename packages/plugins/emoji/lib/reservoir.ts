@@ -7,6 +7,8 @@ import { fromRSS } from '../providers/rss';
 import { fromNews } from '../providers/news';
 import { withCacheTTL, writeHealth } from './cache';
 import { dedupeByUrlAndSimilarity, normalizeText, retry, runLimited, filterByDenylist } from './utils';
+import { RequestBudget } from '@factory/factory/util/budget';
+import { Breaker } from '@factory/factory/util/breaker';
 
 const registry: Record<string, Provider> = {
   reddit: { name: 'reddit', fetch: async ({ limit }) => (await fromReddit(undefined, limit || 100)).map(toItem('reddit')) },
@@ -33,17 +35,20 @@ export async function buildReservoir(limit = 300): Promise<ReservoirRow[]> {
   const perProvider = Math.max(10, Number(process.env.RESERVOIR_LIMIT_PER_PROVIDER || 100));
   const ttlHours = Math.max(1, Number(process.env.RESERVOIR_TTL_HOURS || 24));
   const key = `reservoir-${new Date().toISOString().slice(0,10)}.json`;
+  const effTtl = process.env.RESERVOIR_NOCACHE === 'true' ? 0 : ttlHours;
 
-  const cached = await withCacheTTL<DiscoveryItem[] | null>(key, ttlHours, async () => {
+  const cached = await withCacheTTL<DiscoveryItem[] | null>(key, effTtl, async () => {
     const jobs = configured.map((name) => async () => {
       const prov = registry[name];
       if (!prov) return [] as DiscoveryItem[];
       const t0 = Date.now();
       try {
-        const items = await retry(() => prov.fetch({ limit: perProvider }), 3, 400);
-        await writeHealth(prov.name, { ok: true, count: items.length, ms: Date.now() - t0 });
-        console.log(`[provider:${prov.name}] OK count=${items.length} ms=${Date.now() - t0}`);
-        return items;
+        const breaker = new Breaker(Number(process.env.PROVIDER_BREAKER_THRESHOLD || 3));
+        const items = await breaker.run(name, () => retry(() => prov.fetch({ limit: perProvider }), 3, 400));
+        const arr = items || [];
+        await writeHealth(prov.name, { ok: true, count: arr.length, ms: Date.now() - t0 });
+        console.log(`[provider:${prov.name}] OK count=${arr.length} ms=${Date.now() - t0}`);
+        return arr;
       } catch (e: any) {
         await writeHealth(prov.name, { ok: false, error: e?.message || String(e) });
         console.warn(`[provider:${prov.name}] ERR ${e?.message || e}`);
@@ -52,7 +57,13 @@ export async function buildReservoir(limit = 300): Promise<ReservoirRow[]> {
     });
     const conc = Math.max(1, Number(process.env.PROVIDERS_CONCURRENCY || 3));
     const arrays = await runLimited(jobs, conc);
-    return arrays.flat();
+    const flat = arrays.flat();
+    const budget = new RequestBudget(configured.length * perProvider, 'reservoir');
+    const out: DiscoveryItem[] = [];
+    for (const it of flat) {
+      try { budget.consume(1); out.push(it); } catch { break; }
+    }
+    return out;
   });
 
   const deny = process.env.PROFANITY_DENYLIST;

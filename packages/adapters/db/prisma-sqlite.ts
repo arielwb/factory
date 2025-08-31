@@ -2,6 +2,7 @@ import type { DB, TSourceItem } from "@factory/core/ports";
 import { promises as fs } from 'fs';
 import { resolve } from 'path';
 import { PrismaClient } from "@prisma/client";
+import { noveltyScore, finalScore } from "@factory/factory/signals/score";
 
 const prisma = new PrismaClient();
 
@@ -72,9 +73,10 @@ export const db: DB = {
         const engagement = Math.log10(1 + s.likes) + 2 * Math.log10(1 + s.shares) + 1.5 * Math.log10(1 + s.comments);
         const recency = Math.exp(-ageHours / 48) * 3; // decays over ~2 days
         const seen = recentPosts.some((p) => (p.title || "").includes(s.term));
-        const novelty = seen ? -5 : 0;
-        const noveltyBoost = history[s.term] ? 0 : 2;
-        const score = engagement + recency + novelty + noveltyBoost;
+        const penalty = seen ? -5 : 0;
+        const base = engagement + recency + penalty;
+        const nov = noveltyScore(s.term, history);
+        const score = finalScore(base, nov, 0);
         return { s, score };
       })
       .sort((a, b) => b.score - a.score)
