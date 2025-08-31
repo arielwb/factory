@@ -38,18 +38,50 @@ export const db: DB = {
   },
 
   async queueTopNForDraft(niche, n) {
-    const items = await prisma.sourceItem.findMany({
-      where: { niche },
-      orderBy: [
-        { likes: "desc" },
-        { shares: "desc" },
-        { comments: "desc" },
-        { firstSeenAt: "desc" }
-      ],
-      take: n
+    const now = new Date();
+    return await prisma.$transaction(async (tx) => {
+      // Fetch recent published posts for basic novelty penalty
+      const recentPosts = await tx.post.findMany({
+        where: { niche },
+        select: { id: true, title: true, slug: true },
+        orderBy: { createdAt: "desc" },
+        take: 200
+      });
+
+      // Get candidates that are not queued yet
+      const candidates = await tx.sourceItem.findMany({
+        where: { niche, queuedAt: null },
+        orderBy: [
+          { likes: "desc" },
+          { shares: "desc" },
+          { comments: "desc" },
+          { firstSeenAt: "desc" }
+        ],
+        take: Math.max(n * 5, 50)
+      });
+
+      // Score: engagement (log), recency decay, novelty penalty if term seen in a post title
+      const scored = candidates.map((s) => {
+        const ageHours = Math.max(0, (now.getTime() - new Date(s.firstSeenAt).getTime()) / 36e5);
+        const engagement = Math.log10(1 + s.likes) + 2 * Math.log10(1 + s.shares) + 1.5 * Math.log10(1 + s.comments);
+        const recency = Math.exp(-ageHours / 48) * 3; // decays over ~2 days
+        const seen = recentPosts.some((p) => (p.title || "").includes(s.term));
+        const novelty = seen ? -5 : 0;
+        const score = engagement + recency + novelty;
+        return { s, score };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, n)
+      .map((x) => x.s);
+
+      if (scored.length === 0) return [] as unknown as TSourceItem[];
+
+      // Mark selected as queued (idempotent)
+      const ids = scored.map((x) => x.id);
+      await tx.sourceItem.updateMany({ where: { id: { in: ids }, queuedAt: null }, data: { queuedAt: now } });
+
+      return scored as unknown as TSourceItem[];
     });
-    // Cast to TSourceItem-like shape (Prisma returns Date, strings as expected)
-    return items as unknown as TSourceItem[];
   },
 
   async createDraftPost(p) {
@@ -73,6 +105,7 @@ export const db: DB = {
   async listDrafts() {
     const drafts = await prisma.post.findMany({
       where: { status: "draft" },
+      orderBy: { createdAt: "asc" },
       select: { id: true, slug: true, title: true }
     });
     return drafts;
@@ -87,5 +120,15 @@ export const db: DB = {
 
   async getPostBySlug(slug) {
     return prisma.post.findUnique({ where: { slug } });
+  },
+
+  async listPublishedSince(minutes: number) {
+    const since = new Date(Date.now() - Math.max(1, minutes) * 60_000);
+    const posts = await prisma.post.findMany({
+      where: { status: "published", publishedAt: { gte: since } },
+      orderBy: { publishedAt: "desc" },
+      select: { id: true, slug: true, title: true, summary: true, ogImageKey: true }
+    });
+    return posts as any;
   }
 };

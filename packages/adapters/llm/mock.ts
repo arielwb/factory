@@ -19,5 +19,15 @@ export const llm: LLM = {
       }
     } as TDraftExplainer;
   }
+  ,
+  async draftExplainerFromPrompt({ system, user }): Promise<TDraftExplainer> {
+    try {
+      const u = JSON.parse(user);
+      const term = u.term ?? "";
+      const snippets: string[] = Array.isArray(u.snippets) ? u.snippets : [String(u.snippets || "")];
+      return this.draftExplainer({ term, snippets, language: u.language || "en" });
+    } catch {
+      return this.draftExplainer({ term: "", snippets: [user], language: "en" });
+    }
+  }
 };
-
