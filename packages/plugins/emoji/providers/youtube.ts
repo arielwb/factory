@@ -1,12 +1,14 @@
 import type { ReservoirRow } from '../types';
 
-export async function fromYouTube(query = 'emoji meaning', maxResults = 25): Promise<ReservoirRow[]> {
+export async function fromYouTube(query?: string, maxResults?: number): Promise<ReservoirRow[]> {
   const key = process.env.YT_API_KEY;
   if (!key) return [];
+  const q = (query || process.env.YT_QUERY || 'emoji meaning').toString();
+  const limit = Math.min(50, Math.max(1, Number(maxResults ?? process.env.YT_MAX_RESULTS ?? 25)));
   const url = new URL('https://www.googleapis.com/youtube/v3/search');
   url.searchParams.set('part', 'snippet');
-  url.searchParams.set('maxResults', String(Math.min(50, Math.max(1, maxResults))));
-  url.searchParams.set('q', query);
+  url.searchParams.set('maxResults', String(limit));
+  url.searchParams.set('q', q);
   url.searchParams.set('key', key);
   const res = await fetch(url.toString());
   if (!res.ok) return [];
@@ -20,4 +22,3 @@ export async function fromYouTube(query = 'emoji meaning', maxResults = 25): Pro
   }
   return rows;
 }
-
