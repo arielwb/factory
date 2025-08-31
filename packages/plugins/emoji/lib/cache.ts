@@ -2,6 +2,10 @@ import { promises as fs } from 'fs';
 import { resolve, dirname } from 'path';
 
 export async function withCacheTTL<T>(key: string, ttlHours: number, fn: () => Promise<T>): Promise<T> {
+  if (ttlHours <= 0) {
+    // Bypass cache entirely
+    return fn();
+  }
   const file = resolve(process.cwd(), 'data/fixtures', key);
   try {
     const stat = await fs.stat(file);
@@ -28,4 +32,3 @@ export async function writeHealth(key: string, payload: any) {
     await fs.writeFile(file, JSON.stringify(data, null, 2), 'utf8');
   } catch {}
 }
-

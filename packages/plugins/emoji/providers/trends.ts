@@ -15,27 +15,59 @@ function seedFile(seed: string, geo: string, window: string) {
 
 async function getRelatedQueries(seed: string, geo: string, time: string, ttlHours: number): Promise<any> {
   const key = seedFile(seed, geo, time);
-  return withCacheTTL<any>(key, ttlHours, async () => {
+  const effectiveTTL = process.env.TRENDS_NOCACHE === 'true' ? 0 : ttlHours;
+  const headers: Record<string, string> = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+    'Accept': '*/*'
+  };
+  return withCacheTTL<any>(key, effectiveTTL, async () => {
     const reqObj = { comparisonItem: [{ keyword: seed, geo: geo === 'WORLDWIDE' ? '' : geo, time }], category: 0, property: '' };
     const explore = new URL('https://trends.google.com/trends/api/explore');
     explore.searchParams.set('hl', HL);
     explore.searchParams.set('tz', TZ);
     explore.searchParams.set('req', JSON.stringify(reqObj));
-    const er = await fetch(explore.toString());
+    const er = await fetch(explore.toString(), { headers } as any);
     if (!er.ok) throw new Error(`explore ${er.status}`);
     const ejson = JSON.parse(stripXssi(await er.text()));
     const widget = (ejson.widgets || []).find((w: any) => (w.id === 'RELATED_QUERIES' || /RELATED_QUERIES/i.test(w.title || '')));
     if (!widget) return { top: [], rising: [] };
-    const rq = new URL('https://trends.google.com/trends/api/relatedqueries');
+    const rq = new URL('https://trends.google.com/trends/api/widgetdata/relatedsearches');
     rq.searchParams.set('hl', HL);
     rq.searchParams.set('tz', TZ);
     rq.searchParams.set('req', JSON.stringify(widget.request));
     rq.searchParams.set('token', String(widget.token));
-    const rr = await fetch(rq.toString());
+    const rr = await fetch(rq.toString(), { headers } as any);
     if (!rr.ok) throw new Error(`related ${rr.status}`);
-    const rjson = JSON.parse(stripXssi(await rr.text()));
-    return rjson?.default || { top: [], rising: [] };
+    const txt = await rr.text();
+    const rjson = JSON.parse(stripXssi(txt));
+    // Expected shape: { default: { rankedList: [ { rankedKeyword: [...] }, { rankedKeyword: [...] } ] } }
+    return rjson?.default || { rankedList: [] };
   });
+}
+
+async function dailyTrendsRows(geo: string): Promise<ReservoirRow[]> {
+  const url = new URL('https://trends.google.com/trends/api/dailytrends');
+  url.searchParams.set('hl', HL);
+  url.searchParams.set('tz', TZ);
+  url.searchParams.set('geo', geo === 'WORLDWIDE' ? 'US' : geo);
+  try {
+    const res = await fetch(url.toString());
+    if (!res.ok) return [];
+    const text = await res.text();
+    const data = JSON.parse(stripXssi(text));
+    const days = data?.default?.trendingSearchesDays || [];
+    const rows: ReservoirRow[] = [];
+    for (const day of days) {
+      const date = day?.date || '';
+      for (const item of day?.trendingSearches || []) {
+        const query: string = item?.title?.query;
+        const article: string | undefined = item?.articles?.[0]?.url;
+        if (!query) continue;
+        rows.push({ text: query, url: article || `https://www.google.com/search?q=${encodeURIComponent(query)}`, created_at: date });
+      }
+    }
+    return rows;
+  } catch { return []; }
 }
 
 function toRows(list: any[]): ReservoirRow[] {
@@ -59,29 +91,8 @@ export async function fromTrends(): Promise<ReservoirRow[]> {
   const ttl = Math.max(1, Number(process.env.TRENDS_CACHE_TTL_HOURS || 24));
 
   if (seeds.length === 0) {
-    // Fallback: daily trends
-    const url = new URL('https://trends.google.com/trends/api/dailytrends');
-    url.searchParams.set('hl', HL);
-    url.searchParams.set('tz', TZ);
-    url.searchParams.set('geo', geo === 'WORLDWIDE' ? 'US' : geo);
-    try {
-      const res = await fetch(url.toString());
-      if (!res.ok) return [];
-      const text = await res.text();
-      const data = JSON.parse(stripXssi(text));
-      const days = data?.default?.trendingSearchesDays || [];
-      const rows: ReservoirRow[] = [];
-      for (const day of days) {
-        const date = day?.date || '';
-        for (const item of day?.trendingSearches || []) {
-          const query: string = item?.title?.query;
-          const article: string | undefined = item?.articles?.[0]?.url;
-          if (!query) continue;
-          rows.push({ text: query, url: article || `https://www.google.com/search?q=${encodeURIComponent(query)}`, created_at: date });
-        }
-      }
-      return rows;
-    } catch { return []; }
+    // Fallback: daily trends when no seeds configured
+    return dailyTrendsRows(geo);
   }
 
   // Seeded related queries path
@@ -99,8 +110,13 @@ export async function fromTrends(): Promise<ReservoirRow[]> {
       const data = await getRelatedQueries(seed, geo, windowStr, ttl);
       const topRows = toRows(data?.rankedList || data?.top || []);
       const risingRows = toRows(data?.rankedList?.slice(1) || data?.rising || []);
+      const before = all.length;
       all.push(...topRows.slice(0, maxPerSeed));
       all.push(...risingRows.slice(0, maxPerSeed));
+      const added = all.length - before;
+      if (process.env.TRENDS_DEBUG === 'true') {
+        console.log(`[trends] seed="${seed}" added=${added} (top=${topRows.length}, rising=${risingRows.length})`);
+      }
 
       // Promotion logic using rising values if present
       const rk = (data?.rankedList?.slice(1)?.[0]?.rankedKeyword) || [];
@@ -126,6 +142,12 @@ export async function fromTrends(): Promise<ReservoirRow[]> {
     } catch (e) {
       // ignore seed fetch error
     }
+  }
+
+  // If nothing found from seeds, fallback to daily trends so provider health isn't zero
+  if (all.length === 0) {
+    if (process.env.TRENDS_DEBUG === 'true') console.log('[trends] seeds yielded 0; falling back to daily trends');
+    all.push(...await dailyTrendsRows(geo));
   }
 
   // Cap watchlist size
