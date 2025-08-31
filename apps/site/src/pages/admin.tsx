@@ -34,10 +34,12 @@ export default function Admin({ drafts, allowPreview, previewSecret }: { drafts:
       <section style={{border:'1px solid #eee',padding:12,margin:'12px 0'}}>
         <h2>Shortcuts</h2>
         <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-          <button disabled={busy} onClick={() => enqueue('ingest', { plugin: 'emoji', live: true, limit: 15, nocache: true })}>Run Discovery (live)</button>
-          <button disabled={busy} onClick={() => enqueue('generate', { plugin: 'emoji', count: 1 })}>Generate 1</button>
+          <button disabled={busy} onClick={() => enqueue('ingest', { plugin: 'emoji', live: true, limit: 15, nocache: true })}>Run Emoji Discovery</button>
+          <button disabled={busy} onClick={() => enqueue('generate', { plugin: 'emoji', count: 1 })}>Generate 1 (Emoji)</button>
           <button disabled={busy} onClick={() => enqueue('publishTop', { limit: 1 })}>Publish Top 1</button>
           <button disabled={busy} onClick={() => enqueue('distributeRecent', { since: 1440 })}>Distribute Recent</button>
+          <button disabled={busy} onClick={() => enqueue('ingest', { plugin: 'acronyms', live: true, limit: 15, nocache: true })}>Run Acronyms Discovery</button>
+          <button disabled={busy} onClick={() => enqueue('generate', { plugin: 'acronyms', count: 1 })}>Generate 1 (Acronyms)</button>
         </div>
         <p style={{marginTop:8,fontSize:12,color:'#555'}}>Note: keep the worker tasks watcher running to process these. <code>pnpm run tasks:watch</code></p>
       </section>

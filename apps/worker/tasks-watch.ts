@@ -6,6 +6,7 @@ import { promises as fs } from 'fs';
 import { resolve } from 'path';
 import { container } from '@factory/infra/container';
 import { emojiPlugin } from '@factory/plugins/emoji';
+import { acronymsPlugin } from '@factory/plugins/acronyms';
 import { dedupe, validateItems } from '@factory/factory/ingest/utils';
 import { generateOne } from '@factory/factory/generate';
 import { distributeRecent } from '@factory/factory/distribute';
@@ -38,7 +39,8 @@ async function processOnce() {
     const p = task.payload || {};
     try {
       if (t === 'ingest') {
-        const plugin = emojiPlugin; // only emoji for now
+        const pluginName = (p.plugin || 'emoji') as string;
+        const plugin = pluginName === 'acronyms' ? acronymsPlugin : emojiPlugin;
         const live = !!p.live;
         const limit = Number(p.limit || 10);
         const items = await plugin.discover({ limit, live });
@@ -48,7 +50,9 @@ async function processOnce() {
       } else if (t === 'generate') {
         const count = Math.max(1, Number(p.count || 1));
         for (let i = 0; i < count; i++) {
-          const r = await generateOne({ plugin: emojiPlugin, db, llm, renderer });
+          const pluginName = (p.plugin || 'emoji') as string;
+          const plugin = pluginName === 'acronyms' ? acronymsPlugin : emojiPlugin;
+          const r = await generateOne({ plugin, db, llm, renderer });
           if (!r) break;
           console.log('[tasks] GENERATE ok', r.slug);
         }
@@ -81,4 +85,3 @@ async function main() {
 }
 
 main().catch(e => { console.error('[tasks] fatal', e?.message || e); process.exit(1); });
-
