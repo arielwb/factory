@@ -24,6 +24,10 @@
     "test:reservoir": "node -r ts-node/register -r tsconfig-paths/register apps/worker/test-reservoir.ts",
     "tasks:watch": "node -r ts-node/register -r tsconfig-paths/register apps/worker/tasks-watch.ts -- --watch",
     "tasks:run": "node -r ts-node/register -r tsconfig-paths/register apps/worker/tasks-watch.ts"
+    ,
+    "reset:all": "node -r ts-node/register -r tsconfig-paths/register apps/worker/reset.ts -- --all",
+    "reset:discovery": "node -r ts-node/register -r tsconfig-paths/register apps/worker/reset.ts -- --discovery",
+    "reset:drafts": "node -r ts-node/register -r tsconfig-paths/register apps/worker/reset.ts -- --drafts"
   },
   "pnpm": {
     "patchedDependencies": {}

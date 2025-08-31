@@ -54,6 +54,8 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   const ogAbsolute = post.ogImageKey
     ? (post.ogImageKey.startsWith('http') ? post.ogImageKey : `${siteOrigin.replace(/\/$/, '')}/api/og?key=${encodeURIComponent(post.ogImageKey)}`)
     : null;
+  const createdAtIso = post.createdAt ? (post.createdAt as Date).toISOString() : null;
+  const publishedAtIso = post.publishedAt ? (post.publishedAt as Date).toISOString() : null;
   const ld = {
     '@context': 'https://schema.org',
     '@type': 'Article',
@@ -61,15 +63,15 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
     description: post.summary || '',
     url: canonical,
     image: ogAbsolute || undefined,
-    datePublished: post.publishedAt || post.createdAt,
-    dateModified: post.publishedAt || post.createdAt,
+    datePublished: publishedAtIso || createdAtIso || undefined,
+    dateModified: publishedAtIso || createdAtIso || undefined,
     author: { '@type': 'Organization', name: 'Factory' },
     publisher: { '@type': 'Organization', name: 'Factory' }
   };
   const safePost: any = {
     ...post,
-    createdAt: post.createdAt ? (post.createdAt as Date).toISOString() : null,
-    publishedAt: post.publishedAt ? (post.publishedAt as Date).toISOString() : null,
+    createdAt: createdAtIso,
+    publishedAt: publishedAtIso,
     canonical,
     ogAbsolute,
     ld
