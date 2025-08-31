@@ -1,5 +1,5 @@
 import { config as loadEnv } from 'dotenv';
-const ENV_FILE = process.env.ENV_FILE || '.env.local';
+const ENV_FILE = process.env.ENV_FILE || '.env';
 loadEnv({ path: ENV_FILE });
 loadEnv();
 import { container } from '@factory/infra/container';
@@ -31,4 +31,3 @@ function parseArg(argv: string[], key: string, fallback?: string): string | unde
   }
   console.log('[generate] total drafts:', generated);
 })().catch(e => { console.error('[generate] error', e?.message || e); process.exit(1); });
-

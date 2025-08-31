@@ -1,5 +1,5 @@
 import { config as loadEnv } from 'dotenv';
-const ENV_FILE = process.env.ENV_FILE || '.env.local';
+const ENV_FILE = process.env.ENV_FILE || '.env';
 loadEnv({ path: ENV_FILE });
 loadEnv();
 import { buildReservoir } from '@factory/plugins/emoji/lib/reservoir';
@@ -21,4 +21,3 @@ function parseLimit(argv: string[], key: string, fallback: number): number {
   console.error('[reservoir] error', e?.message || e);
   process.exit(1);
 });
-

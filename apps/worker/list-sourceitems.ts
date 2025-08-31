@@ -1,5 +1,5 @@
 import { config as loadEnv } from 'dotenv';
-const ENV_FILE = process.env.ENV_FILE || '.env.local';
+const ENV_FILE = process.env.ENV_FILE || '.env';
 loadEnv({ path: ENV_FILE });
 loadEnv();
 import { PrismaClient } from '@prisma/client';
@@ -22,4 +22,3 @@ function parseLimit(argv: string[]): number {
   console.error('[db:terms] error', e?.message || e);
   process.exit(1);
 });
-
