@@ -2,6 +2,7 @@ import type { DB, TSourceItem } from "@factory/core/ports";
 import { promises as fs } from 'fs';
 import { resolve } from 'path';
 import { PrismaClient } from "@prisma/client";
+import { noveltyScore, finalScore, overlapScore } from "@factory/factory/signals/score";
 import { noveltyScore, finalScore } from "@factory/factory/signals/score";
 
 const prisma = new PrismaClient();
@@ -67,16 +68,29 @@ export const db: DB = {
       let history: Record<string, number[]> = {};
       try { history = JSON.parse(await fs.readFile(resolve(process.cwd(), 'data/fixtures/history.json'), 'utf8')); } catch {}
 
-      // Score: engagement (log), recency decay, novelty penalty if term seen in a post title + small novelty boost if unseen in history
+      // Pre-compute simple overlap by counting distinct source domains per term
+      const termOverlap = new Map<string, number>();
+      for (const s of candidates) {
+        if (termOverlap.has(s.term)) continue;
+        const same = await tx.sourceItem.findMany({ where: { term: s.term }, select: { sourceUrl: true }, take: 50 });
+        const hosts = new Set<string>();
+        for (const u of same) {
+          try { if (u.sourceUrl) hosts.add(new URL(u.sourceUrl).hostname); } catch {}
+        }
+        termOverlap.set(s.term, hosts.size);
+      }
+
+      // Score: engagement (log), recency decay, novelty penalty if term seen in a post title + signals from history/overlap
       const scored = candidates.map((s) => {
         const ageHours = Math.max(0, (now.getTime() - new Date(s.firstSeenAt).getTime()) / 36e5);
         const engagement = Math.log10(1 + s.likes) + 2 * Math.log10(1 + s.shares) + 1.5 * Math.log10(1 + s.comments);
-        const recency = Math.exp(-ageHours / 48) * 3; // decays over ~2 days
+        const recency = Math.exp(-ageHours / 48) * 3;
         const seen = recentPosts.some((p) => (p.title || "").includes(s.term));
         const penalty = seen ? -5 : 0;
         const base = engagement + recency + penalty;
         const nov = noveltyScore(s.term, history);
-        const score = finalScore(base, nov, 0);
+        const ov = overlapScore(termOverlap.get(s.term) || 0);
+        const score = finalScore(base, nov, ov);
         return { s, score };
       })
       .sort((a, b) => b.score - a.score)
