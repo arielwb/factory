@@ -13,7 +13,7 @@ export async function distributeRecent(opts: {
   const posts = await db.listPublishedSince(since);
   for (const p of posts) {
     const url = joinUrl(siteOrigin, `/${p.slug}`);
-    const text = `${p.title} ${url}`.trim();
+    const text = `${(p as any).memeText || p.title} ${url}`.trim();
     await poster.planPost({ platform, text, url, mediaKey: p.ogImageKey || undefined });
   }
   return posts.map((p) => p.slug);
@@ -22,4 +22,3 @@ export async function distributeRecent(opts: {
 function joinUrl(base: string, path: string) {
   return `${base.replace(/\/$/, "")}${path}`;
 }
-

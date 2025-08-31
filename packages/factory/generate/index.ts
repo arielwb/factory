@@ -20,7 +20,7 @@ export async function generateOne(opts: {
   if (!item) return null;
 
   const prompt = plugin.buildPrompt({ item });
-  const draft = (llm.draftExplainerFromPrompt
+  const seoDraft = (llm.draftExplainerFromPrompt
     ? await llm.draftExplainerFromPrompt(prompt)
     : await (async () => {
         try {
@@ -30,6 +30,12 @@ export async function generateOne(opts: {
           return await llm.draftExplainer({ term: item.term, snippets: [item.text], language: "en" });
         }
       })());
+
+  // Meme mode using same JSON schema but memey tone
+  const memeSystem = "You write meme-style definitions in the SAME JSON schema (title, summary, sections) but with casual internet slang, emojis, and PG-13 humor. No slurs or NSFW.";
+  const memeDraft = (llm.draftExplainerFromPrompt
+    ? await llm.draftExplainerFromPrompt({ system: memeSystem, user: prompt.user })
+    : seoDraft);
 
   // Generate slug with collision avoidance
   let slug = plugin.slugFor?.(item) || `what-does-${plugin.name}-item-mean`;
@@ -42,16 +48,39 @@ export async function generateOne(opts: {
     }
   } catch {}
 
-  const { key } = await renderer.renderOgCard({ title: draft.title, summary: draft.summary, slug });
-  const contentHtml = buildContentHtml(draft as any);
+  const { key } = await renderer.renderOgCard({ title: seoDraft.title, summary: seoDraft.summary, slug });
+  const contentHtml = buildContentHtml(seoDraft as any);
+  const memeHtml = buildMemeHtml(memeDraft as any);
+  const memeText = buildMemeText(memeDraft as any);
   const post = await db.createDraftPost({
     niche: plugin.name,
     slug,
-    title: draft.title,
-    summary: draft.summary,
+    title: seoDraft.title,
+    summary: seoDraft.summary,
     contentHtml,
     ogImageKey: key
   });
+  try {
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+    await prisma.post.update({ where: { id: post.id }, data: { memeText, memeHtml } });
+  } catch {}
   return { slug: post.slug };
 }
 
+function buildMemeText(draft: { title: string; summary: string; sections: { usage: string[] } }) {
+  const oneLiner = draft.summary || draft.title;
+  const example = draft.sections?.usage?.[0] || '';
+  const caption = `${oneLiner}${example ? ' — ' + example : ''}`.slice(0, 260);
+  return caption;
+}
+
+function buildMemeHtml(draft: { title: string; summary: string; sections: { usage: string[] } }) {
+  const oneLiner = draft.summary || draft.title;
+  const usage = draft.sections?.usage || [];
+  return `
+    <h2>Memey</h2>
+    <p>${oneLiner}</p>
+    ${usage.length ? `<h3>Examples</h3><ul>${usage.slice(0,2).map(u=>`<li>${u}</li>`).join('')}</ul>` : ''}
+  `;
+}

@@ -21,19 +21,23 @@ export default function Post({ post }: any) {
         )}
       </Head>
       <main style={{ maxWidth: 760, margin: "40px auto", padding: "0 16px" }}>
-      {post.__preview && (
-        <div style={{background:'#fffbdd',border:'1px solid #f6e05e',padding:8,marginBottom:12,fontSize:14}}>Preview mode: this post may be a draft</div>
-      )}
-      {post.ogImageKey && (
-        <img
-          src={post.ogAbsolute || (post.ogImageKey.startsWith("http") ? post.ogImageKey : `/api/og?key=${encodeURIComponent(post.ogImageKey)}`)}
-          width={600}
-          alt="og"
-        />
-      )}
-      <h1>{post.title}</h1>
-      <p>{post.summary}</p>
-      <div dangerouslySetInnerHTML={{ __html: post.contentHtml }} />
+        {post.__preview && (
+          <div style={{background:'#fffbdd',border:'1px solid #f6e05e',padding:8,marginBottom:12,fontSize:14}}>Preview mode: this post may be a draft</div>
+        )}
+        <div style={{marginBottom:12}}>
+          <a href={`/${post.slug}?meme=1`} style={{marginRight:8}}>See memey version 😂</a>
+          <a href={`/${post.slug}`}>See formal version 📘</a>
+        </div>
+        {post.ogImageKey && (
+          <img
+            src={post.ogAbsolute || (post.ogImageKey.startsWith("http") ? post.ogImageKey : `/api/og?key=${encodeURIComponent(post.ogImageKey)}`)}
+            width={600}
+            alt="og"
+          />
+        )}
+        <h1>{post.title}</h1>
+        <p>{post.summary}</p>
+        <div dangerouslySetInnerHTML={{ __html: (post.showMeme && post.memeHtml) ? post.memeHtml : post.contentHtml }} />
       </main>
     </>
   );
@@ -68,13 +72,15 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
     author: { '@type': 'Organization', name: 'Factory' },
     publisher: { '@type': 'Organization', name: 'Factory' }
   };
+  const showMeme = String(ctx.query?.meme || '') === '1';
   const safePost: any = {
     ...post,
     createdAt: createdAtIso,
     publishedAt: publishedAtIso,
     canonical,
     ogAbsolute,
-    ld
+    ld,
+    showMeme
   };
   if (isPreview) safePost.__preview = true;
   return { props: { post: safePost } } as any;
