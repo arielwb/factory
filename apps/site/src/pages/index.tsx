@@ -21,6 +21,7 @@ export default function Home({ posts, siteOrigin }: { posts: PostLite[]; siteOri
         <meta property="og:description" content={description} />
         <meta property="og:url" content={url} />
         <meta name="twitter:card" content="summary" />
+        <link rel="alternate" type="application/rss+xml" title="Latest Explainers" href="/rss.xml" />
       </Head>
       <main style={{maxWidth:760, margin:'40px auto', padding:'0 16px'}}>
         <h1>Latest Explainers</h1>
@@ -60,4 +61,3 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   }));
   return { props: { posts, siteOrigin } } as any;
 };
-

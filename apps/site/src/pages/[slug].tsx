@@ -16,6 +16,9 @@ export default function Post({ post }: any) {
         {post.ogAbsolute && <meta property="og:image" content={post.ogAbsolute} />}
         {post.canonical && <meta property="og:url" content={post.canonical} />}
         <meta name="twitter:card" content="summary_large_image" />
+        {post.ld && (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(post.ld) }} />
+        )}
       </Head>
       <main style={{ maxWidth: 760, margin: "40px auto", padding: "0 16px" }}>
       {post.__preview && (
@@ -51,12 +54,25 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   const ogAbsolute = post.ogImageKey
     ? (post.ogImageKey.startsWith('http') ? post.ogImageKey : `${siteOrigin.replace(/\/$/, '')}/api/og?key=${encodeURIComponent(post.ogImageKey)}`)
     : null;
+  const ld = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: post.title,
+    description: post.summary || '',
+    url: canonical,
+    image: ogAbsolute || undefined,
+    datePublished: post.publishedAt || post.createdAt,
+    dateModified: post.publishedAt || post.createdAt,
+    author: { '@type': 'Organization', name: 'Factory' },
+    publisher: { '@type': 'Organization', name: 'Factory' }
+  };
   const safePost: any = {
     ...post,
     createdAt: post.createdAt ? (post.createdAt as Date).toISOString() : null,
     publishedAt: post.publishedAt ? (post.publishedAt as Date).toISOString() : null,
     canonical,
-    ogAbsolute
+    ogAbsolute,
+    ld
   };
   if (isPreview) safePost.__preview = true;
   return { props: { post: safePost } } as any;
