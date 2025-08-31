@@ -22,8 +22,8 @@ export const DraftExplainer = z.object({
     meaning: z.string(),
     origin: z.string(),
     usage: z.array(z.string()).max(3),
-    variants: z.array(z.string()).optional(),
-    notes: z.string().optional()
+    variants: z.array(z.string()).nullish(),
+    notes: z.string().nullish()
   })
 });
 export type TDraftExplainer = z.infer<typeof DraftExplainer>;
@@ -37,6 +37,7 @@ export interface DB {
   listDrafts(): Promise<{ id: string; slug: string; title: string }[]>;
   publishPost(id: string): Promise<void>;
   getPostBySlug(slug: string): Promise<any | null>;
+  listPublishedSince(minutes: number): Promise<{ id: string; slug: string; title: string; summary: string; ogImageKey?: string | null }[]>;
 }
 
 export interface Storage {
@@ -51,6 +52,7 @@ export interface Queue {
 
 export interface LLM {
   draftExplainer(input: { term: string; snippets: string[]; language: "en" | "pt" }): Promise<TDraftExplainer>;
+  draftExplainerFromPrompt?(input: { system: string; user: string }): Promise<TDraftExplainer>;
 }
 
 export interface Renderer {
@@ -64,4 +66,3 @@ export interface Poster {
 export interface Analytics {
   track(event: string, props?: Record<string, any>): Promise<void>;
 }
-
