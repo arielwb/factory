@@ -1,34 +1,35 @@
 import type { DB, Storage, Queue, LLM, Renderer, Poster, Analytics } from "@factory/core/ports";
 
-export function container(): { db: DB; storage: Storage; queue: Queue; llm: LLM; renderer: Renderer; poster: Poster; analytics: Analytics } {
+export async function container(): Promise<{ db: DB; storage: Storage; queue: Queue; llm: LLM; renderer: Renderer; poster: Poster; analytics: Analytics }> {
   const env = process.env;
 
+  // Dynamic imports avoid bundlers resolving unused drivers
   const db: DB = env.DB_DRIVER === "postgres"
-    ? require("@factory/adapters/db/prisma-postgres").db // placeholder; not implemented in local scaffold
-    : require("@factory/adapters/db/prisma-sqlite").db;
+    ? (await import("@factory/adapters/db/prisma-postgres")).db
+    : (await import("@factory/adapters/db/prisma-sqlite")).db;
 
   const storage: Storage = env.STORAGE_DRIVER === "s3"
-    ? require("@factory/adapters/storage/s3-b2").storage // placeholder; not implemented in local scaffold
-    : require("@factory/adapters/storage/fs-local").storage;
+    ? (await import("@factory/adapters/storage/s3-b2")).storage
+    : (await import("@factory/adapters/storage/fs-local")).storage;
 
   const queue: Queue = env.QUEUE_DRIVER === "bullmq"
-    ? require("@factory/adapters/queue/bullmq-upstash").queue // placeholder; not implemented in local scaffold
-    : require("@factory/adapters/queue/memory").queue;
+    ? (await import("@factory/adapters/queue/bullmq-upstash")).queue
+    : (await import("@factory/adapters/queue/memory")).queue;
 
   const llm: LLM = env.LLM_DRIVER === "openai"
-    ? require("@factory/adapters/llm/openai").llm // placeholder; not implemented in local scaffold
-    : require("@factory/adapters/llm/mock").llm;
+    ? (await import("@factory/adapters/llm/openai")).llm
+    : (await import("@factory/adapters/llm/mock")).llm;
 
-  const renderer: Renderer = require("@factory/adapters/render/puppeteer-og").renderer;
+  const { createRenderer } = await import("@factory/infra/renderer/og");
+  const renderer: Renderer = createRenderer(storage);
 
   const poster: Poster = env.POSTER_DRIVER === "live"
-    ? require("@factory/adapters/poster/twitter").poster // placeholder; not implemented in local scaffold
-    : require("@factory/adapters/poster/mock").poster;
+    ? (await import("@factory/adapters/poster/twitter")).poster
+    : (await import("@factory/adapters/poster/mock")).poster;
 
   const analytics: Analytics = env.ANALYTICS_DRIVER === "plausible"
-    ? require("@factory/adapters/analytics/plausible").analytics // placeholder; not implemented in local scaffold
-    : require("@factory/adapters/analytics/console").analytics;
+    ? (await import("@factory/adapters/analytics/plausible")).analytics
+    : (await import("@factory/adapters/analytics/console")).analytics;
 
   return { db, storage, queue, llm, renderer, poster, analytics };
 }
-
