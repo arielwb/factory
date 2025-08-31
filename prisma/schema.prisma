@@ -19,6 +19,7 @@ model SourceItem {
   comments    Int      @default(0)
   firstSeenAt DateTime
   mediaUrl    String?
+  queuedAt    DateTime?
   createdAt   DateTime @default(now())
 }
 
