@@ -9,16 +9,34 @@
   },
   "scripts": {
     "dev": "pnpm --filter @factory/site dev",
-    "worker:once": "node -r ts-node/register -r tsconfig-paths/register apps/worker/index.ts"
+    "worker:once": "node -r ts-node/register -r tsconfig-paths/register apps/worker/index.ts",
+    "ingest:emoji": "node -r ts-node/register -r tsconfig-paths/register packages/factory/ingest/run.ts -- --plugin=emoji",
+    "lint": "eslint . --ext .ts,.tsx",
+    "depcruise": "depcruise --config .dependency-cruiser.js .",
+    "test": "vitest run",
+    "publish:top": "node -r ts-node/register -r tsconfig-paths/register apps/worker/publish-top.ts",
+    "distribute:recent": "node -r ts-node/register -r tsconfig-paths/register apps/worker/distribute-recent.ts",
+    "distribute:events": "node -r ts-node/register -r tsconfig-paths/register apps/worker/distribute-events.ts",
+    "distribute:watch": "node -r ts-node/register -r tsconfig-paths/register apps/worker/distribute-events.ts -- --watch",
+    "generate": "node -r ts-node/register -r tsconfig-paths/register apps/worker/generate.ts"
   },
+  "pnpm": {
+    "patchedDependencies": {}
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "dependencies": {
     "@prisma/client": "^6.15.0",
     "@types/node": "^24.3.0",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.2.1",
     "eslint": "^9.34.0",
     "fluent-ffmpeg": "^2.1.3",
     "nanoid": "^5.1.5",
     "next": "^15.5.2",
+    "openai": "^5.16.0",
     "prettier": "^3.6.2",
     "prisma": "^6.15.0",
     "puppeteer": "^24.17.1",
@@ -29,6 +47,13 @@
     "tsconfig-paths": "^4.2.0",
     "twitter-api-v2": "^1.25.0",
     "typescript": "^5.9.2",
-    "zod": "^4.1.5"
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.34.0",
+    "@typescript-eslint/eslint-plugin": "^8.41.0",
+    "@typescript-eslint/parser": "^8.41.0",
+    "dependency-cruiser": "^17.0.1",
+    "vitest": "^3.2.4"
   }
 }
