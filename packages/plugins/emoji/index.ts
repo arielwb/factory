@@ -1,12 +1,13 @@
 import type { NichePlugin } from "@factory/core/plugins";
 import type { TSourceItem } from "@factory/core/ports";
-import { discoverTopEmojis, topEmojisFromReservoir } from "./lib/discover";
+import { discoverTopEmojis } from "./lib/discover";
 import { fetchContextForEmoji } from "./lib/context";
 import { toSourceItems } from "./lib/normalize";
 import { buildReservoir } from "./lib/reservoir";
 import { clip } from "./util/text";
 import type { ReservoirRow } from "./types";
 import { slugFromEmoji } from "./util/slug";
+import { extractEmojiCandidates } from "@factory/factory/extractors/emoji";
 
 function normalizeEmojiTerm(s: string) {
   return s?.trim() || "";
@@ -44,10 +45,10 @@ export const emojiPlugin: NichePlugin = {
     let emojis: string[] = [];
     const providers = (process.env.DISCOVER_PROVIDERS || '').trim();
     if (providers) {
-      // Non-X discovery via reservoir
+      // Non-X discovery via reservoir + factory extractor
       const rows = await buildReservoir(400);
-      const top = await topEmojisFromReservoir(rows);
-      emojis = (limit ? top.slice(0, limit) : top).map(t => t.emoji);
+      const cands = extractEmojiCandidates(rows as any);
+      emojis = (limit ? cands.slice(0, limit) : cands).map(c => c.emoji);
     } else if (X_ENABLED) {
       // X discovery fallback (if enabled)
       const top = await discoverTopEmojis({ live: true, samplePages: pages, samplePageSize: pageSize });

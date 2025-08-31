@@ -7,6 +7,10 @@ import { dedupe, parseFlags, validateItems, withCache } from "@factory/factory/i
 import { emojiPlugin } from "@factory/plugins/emoji";
 import { acronymsPlugin } from "@factory/plugins/acronyms";
 import type { NichePlugin } from "@factory/core/plugins";
+import { buildReservoir } from "@factory/plugins/emoji/lib/reservoir";
+import { extractEmojiCandidates } from "@factory/factory/extractors/emoji";
+import { extractAcronymCandidates } from "@factory/factory/extractors/acronyms";
+import { updateHistory } from "@factory/factory/signals/history";
 
 const registry: Record<string, NichePlugin> = {
   emoji: emojiPlugin,
@@ -38,6 +42,17 @@ async function main() {
   const valid = validateItems(dedupe(items));
   await db.upsertSourceItems(valid);
   console.log(`[ingest] upserted=${valid.length} firstTerm=${valid[0]?.term ?? "-"}`);
+
+  // Update signals history from reservoir (emoji/acronyms) for novelty scoring
+  try {
+    const rows = await buildReservoir(300);
+    const emojiTop = extractEmojiCandidates(rows as any, 15);
+    for (const e of emojiTop) await updateHistory(e.emoji, e.score);
+    const acrTop = extractAcronymCandidates(rows as any, 15);
+    for (const a of acrTop) await updateHistory(a.term, a.score);
+  } catch (e) {
+    // ignore history update errors
+  }
 }
 
 main().catch((e) => {
