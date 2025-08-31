@@ -1,4 +1,6 @@
 import type { DB, TSourceItem } from "@factory/core/ports";
+import { promises as fs } from 'fs';
+import { resolve } from 'path';
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -60,14 +62,19 @@ export const db: DB = {
         take: Math.max(n * 5, 50)
       });
 
-      // Score: engagement (log), recency decay, novelty penalty if term seen in a post title
+      // Load simple history for novelty boost
+      let history: Record<string, number[]> = {};
+      try { history = JSON.parse(await fs.readFile(resolve(process.cwd(), 'data/fixtures/history.json'), 'utf8')); } catch {}
+
+      // Score: engagement (log), recency decay, novelty penalty if term seen in a post title + small novelty boost if unseen in history
       const scored = candidates.map((s) => {
         const ageHours = Math.max(0, (now.getTime() - new Date(s.firstSeenAt).getTime()) / 36e5);
         const engagement = Math.log10(1 + s.likes) + 2 * Math.log10(1 + s.shares) + 1.5 * Math.log10(1 + s.comments);
         const recency = Math.exp(-ageHours / 48) * 3; // decays over ~2 days
         const seen = recentPosts.some((p) => (p.title || "").includes(s.term));
         const novelty = seen ? -5 : 0;
-        const score = engagement + recency + novelty;
+        const noveltyBoost = history[s.term] ? 0 : 2;
+        const score = engagement + recency + novelty + noveltyBoost;
         return { s, score };
       })
       .sort((a, b) => b.score - a.score)
