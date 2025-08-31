@@ -21,7 +21,9 @@
     "generate": "node -r ts-node/register -r tsconfig-paths/register apps/worker/generate.ts"
     ,
     "db:terms": "node -r ts-node/register -r tsconfig-paths/register apps/worker/list-sourceitems.ts",
-    "test:reservoir": "node -r ts-node/register -r tsconfig-paths/register apps/worker/test-reservoir.ts"
+    "test:reservoir": "node -r ts-node/register -r tsconfig-paths/register apps/worker/test-reservoir.ts",
+    "tasks:watch": "node -r ts-node/register -r tsconfig-paths/register apps/worker/tasks-watch.ts -- --watch",
+    "tasks:run": "node -r ts-node/register -r tsconfig-paths/register apps/worker/tasks-watch.ts"
   },
   "pnpm": {
     "patchedDependencies": {}
