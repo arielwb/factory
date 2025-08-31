@@ -66,6 +66,9 @@ export async function topEmojisFromReservoir(rows: Array<{ text: string }>): Pro
       counts.set(e, (counts.get(e) ?? 0) + 1);
     }
   }
+  // Apply optional denylist from env
+  const deny = (process.env.EMOJI_DENYLIST || '').split(',').map(s=>s.trim()).filter(Boolean);
+  for (const d of deny) counts.delete(d);
   const now = Date.now();
   const scored = await Promise.all(
     [...counts.entries()].map(async ([emoji, freq]) => {

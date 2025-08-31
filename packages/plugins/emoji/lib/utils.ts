@@ -47,3 +47,24 @@ export function dedupeByUrlAndSimilarity<T extends { url: string; text: string }
   return out;
 }
 
+export async function runLimited<T>(jobs: (() => Promise<T>)[], concurrency: number): Promise<T[]> {
+  const results: T[] = [];
+  let idx = 0;
+  async function worker() {
+    while (idx < jobs.length) {
+      const my = idx++;
+      try { results[my] = await jobs[my](); } catch (e) { /* swallow per job */ }
+    }
+  }
+  const workers = Array.from({ length: Math.max(1, concurrency) }, () => worker());
+  await Promise.all(workers);
+  return results;
+}
+
+export function filterByDenylist(text: string, denyEnv: string | undefined): boolean {
+  if (!denyEnv) return true;
+  const parts = denyEnv.split(',').map(s=>s.trim()).filter(Boolean);
+  const lower = text.toLowerCase();
+  for (const p of parts) { if (p && lower.includes(p.toLowerCase())) return false; }
+  return true;
+}

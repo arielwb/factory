@@ -4,15 +4,17 @@ import { fromHN } from '../providers/hn';
 import { fromTrends } from '../providers/trends';
 import { fromYouTube } from '../providers/youtube';
 import { fromRSS } from '../providers/rss';
+import { fromNews } from '../providers/news';
 import { withCacheTTL, writeHealth } from './cache';
-import { dedupeByUrlAndSimilarity, normalizeText, retry } from './utils';
+import { dedupeByUrlAndSimilarity, normalizeText, retry, runLimited, filterByDenylist } from './utils';
 
 const registry: Record<string, Provider> = {
   reddit: { name: 'reddit', fetch: async ({ limit }) => (await fromReddit(undefined, limit || 100)).map(toItem('reddit')) },
   hn: { name: 'hn', fetch: async ({ limit }) => (await fromHN(limit || 100)).map(toItem('hn')) },
   trends: { name: 'trends', fetch: async () => (await fromTrends()).map(toItem('trends')) },
   youtube: { name: 'youtube', fetch: async () => (await fromYouTube()).map(toItem('youtube')) },
-  rss: { name: 'rss', fetch: async () => (await fromRSS()).map(toItem('rss')) }
+  rss: { name: 'rss', fetch: async () => (await fromRSS()).map(toItem('rss')) },
+  news: { name: 'news', fetch: async () => (await fromNews()).map(toItem('news')) }
 };
 
 function toItem(source: string) {
@@ -33,25 +35,30 @@ export async function buildReservoir(limit = 300): Promise<ReservoirRow[]> {
   const key = `reservoir-${new Date().toISOString().slice(0,10)}.json`;
 
   const cached = await withCacheTTL<DiscoveryItem[] | null>(key, ttlHours, async () => {
-    const out: DiscoveryItem[] = [];
-    for (const name of configured) {
+    const jobs = configured.map((name) => async () => {
       const prov = registry[name];
-      if (!prov) continue;
+      if (!prov) return [] as DiscoveryItem[];
       const t0 = Date.now();
       try {
         const items = await retry(() => prov.fetch({ limit: perProvider }), 3, 400);
-        out.push(...items);
         await writeHealth(prov.name, { ok: true, count: items.length, ms: Date.now() - t0 });
         console.log(`[provider:${prov.name}] OK count=${items.length} ms=${Date.now() - t0}`);
+        return items;
       } catch (e: any) {
         await writeHealth(prov.name, { ok: false, error: e?.message || String(e) });
         console.warn(`[provider:${prov.name}] ERR ${e?.message || e}`);
+        return [] as DiscoveryItem[];
       }
-    }
-    return out;
+    });
+    const conc = Math.max(1, Number(process.env.PROVIDERS_CONCURRENCY || 3));
+    const arrays = await runLimited(jobs, conc);
+    return arrays.flat();
   });
 
-  const normalized: ReservoirRow[] = (cached || []).map((d) => ({ text: d.text, url: d.url, lang: d.lang, created_at: d.ts }));
+  const deny = process.env.PROFANITY_DENYLIST;
+  const normalized: ReservoirRow[] = (cached || [])
+    .map((d) => ({ text: d.text, url: d.url, lang: d.lang, created_at: d.ts }))
+    .filter(r => filterByDenylist(r.text || '', deny));
   const deduped = dedupeByUrlAndSimilarity(normalized, 0.92);
   const limited = deduped.slice(0, limit);
   console.log(`[emoji:reservoir] providers=${configured.join('+')} rows=${limited.length}`);
