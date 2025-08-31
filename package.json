@@ -10,7 +10,9 @@
   "scripts": {
     "dev": "pnpm --filter @factory/site dev",
     "worker:once": "node -r ts-node/register -r tsconfig-paths/register apps/worker/index.ts",
-    "ingest:emoji": "node -r ts-node/register -r tsconfig-paths/register packages/factory/ingest/run.ts -- --plugin=emoji",
+    "ingest": "node -r ts-node/register -r tsconfig-paths/register packages/factory/ingest/run.ts",
+    "ingest:emoji": "pnpm run ingest -- --plugin=emoji",
+    "ingest:acronyms": "pnpm run ingest -- --plugin=acronyms",
     "lint": "eslint . --ext .ts,.tsx",
     "depcruise": "depcruise --config .dependency-cruiser.js .",
     "test": "vitest run",

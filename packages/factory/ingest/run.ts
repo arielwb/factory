@@ -5,20 +5,22 @@ loadEnv();
 import { container } from "@factory/infra/container";
 import { dedupe, parseFlags, validateItems, withCache } from "@factory/factory/ingest/utils";
 import { emojiPlugin } from "@factory/plugins/emoji";
+import { acronymsPlugin } from "@factory/plugins/acronyms";
 import type { NichePlugin } from "@factory/core/plugins";
 
 const registry: Record<string, NichePlugin> = {
-  emoji: emojiPlugin
+  emoji: emojiPlugin,
+  acronyms: acronymsPlugin
 };
 
-function parsePluginArg(argv: string[]): string {
+function parsePluginArg(argv: string[]): string | undefined {
   const arg = argv.find((a) => a.startsWith("--plugin="));
-  return arg ? arg.split("=")[1] : "emoji";
+  return arg ? arg.split("=")[1] : undefined;
 }
 
 async function main() {
   const flags = parseFlags(process.argv.slice(2));
-  const name = parsePluginArg(process.argv.slice(2));
+  const name = parsePluginArg(process.argv.slice(2)) || (process.env.PLUGIN || "emoji");
   const plugin = registry[name];
   if (!plugin) throw new Error(`Unknown plugin: ${name}`);
   const { db } = await container();
