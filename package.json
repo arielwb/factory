@@ -19,6 +19,9 @@
     "distribute:events": "node -r ts-node/register -r tsconfig-paths/register apps/worker/distribute-events.ts",
     "distribute:watch": "node -r ts-node/register -r tsconfig-paths/register apps/worker/distribute-events.ts -- --watch",
     "generate": "node -r ts-node/register -r tsconfig-paths/register apps/worker/generate.ts"
+    ,
+    "db:terms": "node -r ts-node/register -r tsconfig-paths/register apps/worker/list-sourceitems.ts",
+    "test:reservoir": "node -r ts-node/register -r tsconfig-paths/register apps/worker/test-reservoir.ts"
   },
   "pnpm": {
     "patchedDependencies": {}
